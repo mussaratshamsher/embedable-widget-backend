@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +27,9 @@ from app.api import widget as widget_router
 from app.api import conversations as conversations_router
 from app.api import chat as chat_router
 from app.api import leads as leads_router
+
+
+logger = logging.getLogger(__name__)
 
 
 app = FastAPI(
@@ -73,6 +78,7 @@ async def app_exception_handler(request: Request, exc: AppException):
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
     """Handle unexpected exceptions without exposing stack traces or secrets."""
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(
         status_code=500,
         content={
@@ -92,8 +98,7 @@ async def startup_event():
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
         except Exception as exc:
-            import logging
-            logging.getLogger(__name__).warning("Database startup failed: %s", exc)
+            logger.warning("Database startup failed: %s", exc)
 
 
 # Health check endpoint

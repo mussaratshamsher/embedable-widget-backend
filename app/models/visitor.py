@@ -1,5 +1,5 @@
 """Visitor model for tracking widget users."""
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text
+from sqlalchemy import Column, String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID, JSON
 from datetime import datetime, timezone
 import uuid
@@ -11,6 +11,11 @@ class Visitor(Base):
     """Visitor entity - represents a website visitor using the widget."""
     
     __tablename__ = "visitors"
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id", "visitor_identifier", name="uq_visitor_project_identifier"
+        ),
+    )
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     project_id = Column(
@@ -20,7 +25,7 @@ class Visitor(Base):
         index=True,
     )
     # Anonymous visitor identifier
-    visitor_identifier = Column(String(255), unique=True, nullable=False, index=True)
+    visitor_identifier = Column(String(255), nullable=False, index=True)
     # IP address (anonymized if needed)
     ip_address = Column(String(45))
     user_agent = Column(Text)

@@ -199,6 +199,15 @@ Once running, access:
    - Ensure you're authorized with the user token
    - Click **Execute**
 
+## Troubleshooting
+
+- **Server won't start / Swagger loads but every call fails**: the app requires `DATABASE_URL`,
+  `JWT_SECRET` and `GROQ_API_KEY` to be set (see `.env.example`); without them startup fails at import time.
+- **`/api/auth/register` returns 500**: install the pinned dependencies (`pip install -r requirements.txt`).
+  `passlib` 1.7.4 is incompatible with `bcrypt >= 4.1`, and the pydantic `EmailStr` fields need `email-validator`.
+- **Database**: models use the PostgreSQL `UUID` column type, so SQLite is not supported. Use PostgreSQL
+  (`docker-compose up postgres`) with the async driver: `postgresql+asyncpg://...`.
+
 ## Environment Variables
 
 See `.env.example` for all available configuration options.

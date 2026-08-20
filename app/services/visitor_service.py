@@ -53,7 +53,7 @@ class VisitorService:
         # Check if visitor already exists with this identifier
         if visitor_identifier:
             existing = await VisitorService.get_visitor_by_identifier(
-                visitor_identifier, db
+                visitor_identifier, db, project_id=project_id
             )
             if existing:
                 return await VisitorService.update_visitor_last_seen(existing.id, db)
@@ -63,7 +63,10 @@ class VisitorService:
             visitor_identifier = None
             while visitor_identifier is None:
                 new_id = VisitorService._generate_visitor_identifier()
-                stmt = select(Visitor).where(Visitor.visitor_identifier == new_id)
+                stmt = select(Visitor).where(
+                    Visitor.project_id == project_id,
+                    Visitor.visitor_identifier == new_id,
+                )
                 result = await db.execute(stmt)
                 if result.scalar_one_or_none() is None:
                     visitor_identifier = new_id
@@ -86,12 +89,14 @@ class VisitorService:
     async def get_visitor_by_identifier(
         visitor_identifier: str,
         db: AsyncSession,
+        project_id: uuid.UUID = None,
     ) -> Visitor:
         """Get visitor by identifier.
         
         Args:
             visitor_identifier: Visitor identifier
             db: Database session
+            project_id: Optional project to scope the lookup to
             
         Returns:
             Visitor or None if not found
@@ -99,8 +104,12 @@ class VisitorService:
         stmt = select(Visitor).where(
             Visitor.visitor_identifier == visitor_identifier
         )
+        
+        if project_id is not None:
+            stmt = stmt.where(Visitor.project_id == project_id)
+        
         result = await db.execute(stmt)
-        return result.scalar_one_or_none()
+        return result.scalars().first()
     
     @staticmethod
     async def get_visitor_by_id(

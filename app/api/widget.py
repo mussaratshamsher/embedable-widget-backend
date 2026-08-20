@@ -57,7 +57,7 @@ async def create_widget_session(
         
         # Get or create visitor
         visitor = await VisitorService.get_visitor_by_identifier(
-            session_create.visitor_identifier, db
+            session_create.visitor_identifier, db, project_id=project.id
         )
         
         if visitor is None:
