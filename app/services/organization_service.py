@@ -136,7 +136,7 @@ class OrganizationService:
             .join(OrganizationMember)
             .where(
                 (OrganizationMember.user_id == user_id)
-                & (Organization.is_active is True)
+                & (Organization.is_active.is_(True))
             )
             .order_by(Organization.created_at.desc())
         )

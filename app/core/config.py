@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     
     # Groq
     groq_api_key: str
+    groq_model: str = "llama-3.3-70b-versatile"
     
     # CORS
     cors_origins: List[str] = ["http://localhost:3000", "http://localhost:8000", "http://127.0.0.1:3000", "http://127.0.0.1:8000"]

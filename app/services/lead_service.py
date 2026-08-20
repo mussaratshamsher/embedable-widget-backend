@@ -154,7 +154,7 @@ class LeadService:
             stmt = stmt.where(Lead.status == status)
         
         if qualified_only:
-            stmt = stmt.where(Lead.is_qualified is True)
+            stmt = stmt.where(Lead.is_qualified.is_(True))
         
         stmt = (
             stmt
@@ -270,7 +270,7 @@ class LeadService:
             select(func.count(Lead.id))
             .where(
                 (Lead.project_id == project_id)
-                & (Lead.is_qualified is True)
+                & (Lead.is_qualified.is_(True))
             )
         )
         result = await db.execute(stmt)

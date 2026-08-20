@@ -4,11 +4,13 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 import json
+import logging
 
 from app.db.database import get_db
 from app.services.conversation_service import ConversationService
 from app.services.project_service import ProjectService
 from app.services.visitor_service import VisitorService
+from app.services.lead_service import LeadService
 from app.services.llm import LLMService
 from app.schemas.chat import ChatMessageRequest, ChatResponse, AIQualificationResponse
 from app.schemas.conversation import MessageRole
@@ -18,6 +20,8 @@ from app.core.exceptions import (
     AuthenticationException,
 )
 
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
@@ -187,7 +191,18 @@ async def qualify_lead(
             conversation_history=formatted_messages,
         )
         
-        return AIQualificationResponse(**lead_data)
+        qualification = AIQualificationResponse(**lead_data)
+        
+        # Persist the extracted lead so it shows up in the leads endpoints
+        await LeadService.create_or_update_lead(
+            conversation.project_id,
+            conversation.id,
+            conversation.visitor_id,
+            qualification.model_dump(),
+            db,
+        )
+        
+        return qualification
     
     except (NotFoundException, ValidationException) as e:
         raise HTTPException(
@@ -199,6 +214,7 @@ async def qualify_lead(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=e.message,
         )
-    except Exception as e:
+    except Exception as exc:
         # Return empty qualification on extraction failure
+        logger.error("Lead qualification failed: %s", exc)
         return AIQualificationResponse()

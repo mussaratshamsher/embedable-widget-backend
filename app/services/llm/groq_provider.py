@@ -1,5 +1,6 @@
 """Groq API provider implementation."""
 import json
+import logging
 from typing import AsyncIterator
 from groq import Groq
 import asyncio
@@ -9,13 +10,16 @@ from app.core.exceptions import ServiceUnavailableException, ValidationException
 from app.services.llm.base import LLMProvider
 
 
+logger = logging.getLogger(__name__)
+
+
 class GroqProvider(LLMProvider):
     """Groq API LLM provider."""
     
     def __init__(self):
         """Initialize Groq client."""
         self.client = Groq(api_key=settings.groq_api_key)
-        self.model = "mixtral-8x7b-32768"  # Default model, can be configured
+        self.model = settings.groq_model
     
     async def generate_response(
         self,
@@ -64,6 +68,7 @@ class GroqProvider(LLMProvider):
             
             return response
         except Exception as e:
+            logger.error("Groq generate_response failed: %s", e)
             if "429" in str(e):
                 raise ServiceUnavailableException("Groq API - Rate limited")
             elif "503" in str(e):
@@ -109,6 +114,7 @@ class GroqProvider(LLMProvider):
             ):
                 yield chunk
         except Exception as e:
+            logger.error("Groq stream_response failed: %s", e)
             if "429" in str(e):
                 raise ServiceUnavailableException("Groq API - Rate limited")
             elif "503" in str(e):
