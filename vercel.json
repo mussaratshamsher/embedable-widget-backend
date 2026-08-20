@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.py"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "/app/backend",
+    "ENVIRONMENT": "production",
+    "JWT_ALGORITHM": "HS256",
+    "JWT_EXPIRATION_HOURS": "24",
+    "DATABASE_URL": "postgresql+asyncpg://user:pass@localhost/db",
+    "JWT_SECRET": "change-me-in-vercel-dashboard",
+    "GROQ_API_KEY": "change-me-in-vercel-dashboard",
+    "SUPABASE_URL": "",
+    "SUPABASE_PUBLISHABLE_KEY": "",
+    "SUPABASE_JWT_SECRET": "",
+    "CORS_ORIGINS": "[\"https://your-frontend-domain.com\"]"
+  }
+}
