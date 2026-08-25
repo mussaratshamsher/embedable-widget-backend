@@ -1,0 +1,204 @@
+"""Chat API endpoints with AI responses."""
+from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
+from uuid import UUID
+import json
+
+from app.db.database import get_db
+from app.services.conversation_service import ConversationService
+from app.services.project_service import ProjectService
+from app.services.visitor_service import VisitorService
+from app.services.llm import LLMService
+from app.schemas.chat import ChatMessageRequest, ChatResponse, AIQualificationResponse
+from app.schemas.conversation import MessageRole
+from app.core.exceptions import (
+    NotFoundException,
+    ValidationException,
+    AuthenticationException,
+)
+
+
+router = APIRouter(prefix="/api/chat", tags=["Chat"])
+
+llm_service = LLMService()
+
+
+@router.post(
+    "/send",
+    summary="Send message to AI",
+    description="Send user message and get AI response via Server-Sent Events",
+)
+async def send_chat_message(
+    conversation_id: UUID,
+    message_request: ChatMessageRequest,
+    project_api_key: str = Query(..., description="Project API key"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Send a message and get AI response via Server-Sent Events (SSE).
+    
+    Query parameters:
+    - **project_api_key**: Project API key for validation
+    
+    Response uses Server-Sent Events format. Client should listen to event stream.
+    Events are JSON objects with format: {"chunk": "...", "is_final": false}
+    """
+    try:
+        # Get conversation
+        conversation = await ConversationService.get_conversation_by_id(
+            conversation_id, db
+        )
+        
+        # Verify project API key
+        project = await ProjectService.get_project_by_api_key(project_api_key, db)
+        
+        if not project or project.id != conversation.project_id:
+            raise AuthenticationException("Invalid API key for this conversation")
+        
+        if conversation.status != "active":
+            raise ValidationException("Conversation is not active")
+        
+        # Save user message
+        user_message = await ConversationService.add_message(
+            conversation_id,
+            MessageRole.USER,
+            message_request.content,
+            db,
+        )
+        
+        # Get conversation history for context
+        _, messages = await ConversationService.get_conversation_context(
+            conversation_id, db, max_messages=10
+        )
+        
+        # Format messages for LLM (exclude user message we just added if not needed)
+        formatted_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+        
+        # Generate streaming response
+        async def event_generator():
+            """Generate SSE events with AI response chunks."""
+            full_response = ""
+            
+            try:
+                # Stream from LLM
+                async for chunk in llm_service.stream_ai_response(
+                    conversation_history=formatted_messages,
+                    project_ai_instructions=project.ai_instructions,
+                ):
+                    full_response += chunk
+                    
+                    # Send chunk as SSE event
+                    event_data = {
+                        "chunk": chunk,
+                        "is_final": False,
+                    }
+                    yield f"data: {json.dumps(event_data)}\n\n"
+                
+                # Save full response as assistant message
+                assistant_message = await ConversationService.add_message(
+                    conversation_id,
+                    MessageRole.ASSISTANT,
+                    full_response,
+                    db,
+                )
+                
+                # Send final event
+                final_event = {
+                    "chunk": "",
+                    "is_final": True,
+                    "message_id": str(assistant_message.id),
+                }
+                yield f"data: {json.dumps(final_event)}\n\n"
+                
+            except Exception as e:
+                # Send error event
+                error_event = {
+                    "error": str(e),
+                    "is_final": True,
+                }
+                yield f"data: {json.dumps(error_event)}\n\n"
+        
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+        )
+    
+    except (NotFoundException, ValidationException) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message,
+        )
+    except AuthenticationException as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=e.message,
+        )
+
+
+@router.post(
+    "/qualify",
+    response_model=AIQualificationResponse,
+    summary="Qualify lead from conversation",
+    description="Extract and qualify lead information from conversation",
+)
+async def qualify_lead(
+    conversation_id: UUID,
+    project_api_key: str = Query(..., description="Project API key"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Analyze conversation and extract lead qualification data.
+    
+    Query parameters:
+    - **project_api_key**: Project API key for validation
+    
+    Uses AI to extract contact info and qualification score from conversation.
+    """
+    try:
+        # Get conversation
+        conversation = await ConversationService.get_conversation_by_id(
+            conversation_id, db
+        )
+        
+        # Verify project API key
+        project = await ProjectService.get_project_by_api_key(project_api_key, db)
+        
+        if not project or project.id != conversation.project_id:
+            raise AuthenticationException("Invalid API key for this conversation")
+        
+        # Get conversation messages for analysis
+        _, messages = await ConversationService.get_conversation_context(
+            conversation_id, db, max_messages=20
+        )
+        
+        if not messages:
+            return AIQualificationResponse()
+        
+        # Format messages for LLM
+        formatted_messages = [
+            {"role": msg.role, "content": msg.content}
+            for msg in messages
+        ]
+        
+        # Extract lead data using LLM
+        lead_data = await llm_service.extract_lead_data(
+            conversation_history=formatted_messages,
+        )
+        
+        return AIQualificationResponse(**lead_data)
+    
+    except (NotFoundException, ValidationException) as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message,
+        )
+    except AuthenticationException as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=e.message,
+        )
+    except Exception as e:
+        # Return empty qualification on extraction failure
+        return AIQualificationResponse()
