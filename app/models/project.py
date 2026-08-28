@@ -43,6 +43,13 @@ class Project(Base):
     # API key for widget authentication
     api_key = Column(String(255), unique=True, nullable=False, index=True)
     extra_metadata = Column("metadata", JSON, default={}, nullable=False)
+    
+    # Enterprise & Security Features
+    allowed_domains = Column(JSON, nullable=True) # Domain Whitelisting
+    theme_color = Column(String(50), nullable=True) # Custom Branding
+    is_banned = Column(Boolean, default=False, nullable=False) # Misuse protection
+    ban_reason = Column(Text, nullable=True) # Reason for deletion/ban
+    
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(
         DateTime(timezone=True),

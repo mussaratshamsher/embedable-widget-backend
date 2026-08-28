@@ -277,3 +277,32 @@ async def admin_delete_project(
 ):
     """Delete a project as admin."""
     await ProjectService.delete_project(project_id, db)
+
+
+class BanProjectRequest(BaseModel):
+    reason: str
+
+
+@router.post(
+    "/projects/{project_id}/ban",
+    summary="Ban a project for misuse",
+    description="Administratively disable a project and mark it as banned for violating rules",
+)
+async def admin_ban_project(
+    project_id: UUID,
+    request: BanProjectRequest,
+    admin_user=Depends(get_current_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Ban a project for violating terms of service or misuse."""
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+        
+    project.is_banned = True
+    project.is_active = False
+    project.ban_reason = request.reason
+    
+    await db.commit()
+    
+    return {"message": "Project has been banned successfully", "reason": request.reason}

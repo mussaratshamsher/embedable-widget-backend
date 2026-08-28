@@ -23,6 +23,7 @@ class ProjectBase(BaseModel):
     business_type: Optional[str] = Field(None, max_length=100)
     ai_instructions: Optional[str] = Field(None, max_length=5000)
     welcome_message: Optional[str] = Field(None, max_length=1000)
+    theme_color: Optional[str] = Field(None, max_length=50)
 
 
 class ProjectCreate(ProjectBase):
@@ -39,6 +40,7 @@ class ProjectUpdate(BaseModel):
     business_type: Optional[str] = Field(None, max_length=100)
     ai_instructions: Optional[str] = Field(None, max_length=5000)
     welcome_message: Optional[str] = Field(None, max_length=1000)
+    theme_color: Optional[str] = Field(None, max_length=50)
     status: Optional[ProjectStatus] = None
 
 

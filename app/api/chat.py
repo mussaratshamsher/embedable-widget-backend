@@ -187,6 +187,53 @@ async def qualify_lead(
             conversation_history=formatted_messages,
         )
         
+        # Save lead to database
+        from app.services.lead_service import LeadService
+        from app.services.webhook_service import WebhookService
+        import asyncio
+        
+        # We only save if there's actually some data extracted (e.g. name or email)
+        # But for now, let's save the qualification data regardless or if it's qualified
+        if lead_data.get("name") or lead_data.get("email") or lead_data.get("qualified"):
+            saved_lead = await LeadService.create_or_update_lead(
+                project_id=project.id,
+                conversation_id=conversation_id,
+                visitor_id=conversation.visitor_id,
+                lead_data=lead_data,
+                db=db,
+            )
+            
+            # Update the conversation to reference the lead_id
+            conversation.lead_id = saved_lead.id
+            db.add(conversation)
+            await db.commit()
+            
+            # Fire webhook in background
+            # We must use a new session for the background task to avoid DB session conflicts
+            # Or just fire HTTP requests which doesn't need DB if we fetch the URLs now
+            
+            # Let's fetch webhooks now using the current DB session
+            webhooks = await WebhookService.get_webhooks_by_project(project.id, db)
+            active_webhooks = [w for w in webhooks if w.is_active]
+            
+            if active_webhooks:
+                # Simple fire-and-forget for httpx
+                import httpx
+                import logging
+                logger = logging.getLogger(__name__)
+                
+                async def fire_webhooks(webhooks_list, data):
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        for webhook in webhooks_list:
+                            try:
+                                logger.info(f"Dispatching lead to webhook {webhook.url}")
+                                await client.post(webhook.url, json={"event": "lead.qualified", "data": data})
+                            except Exception as e:
+                                logger.error(f"Webhook failed for {webhook.url}: {str(e)}")
+                                
+                # Create a background task
+                asyncio.create_task(fire_webhooks(active_webhooks, lead_data))
+        
         return AIQualificationResponse(**lead_data)
     
     except (NotFoundException, ValidationException) as e:

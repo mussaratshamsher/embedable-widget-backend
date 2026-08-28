@@ -251,6 +251,7 @@ async def get_widget_script(
   var PROJECT_NAME = "{safe_name}";
   var WELCOME_MSG = "{safe_msg}";
   var BACKEND_URL = "http://localhost:8000";
+  var THEME_COLOR = "{project.theme_color or '#7c3aed'}";
 
   var visitorIdentifier = localStorage.getItem("flyrank_vis_id") || ("vis_" + Math.random().toString(36).substring(2, 15));
   localStorage.setItem("flyrank_vis_id", visitorIdentifier);
@@ -266,43 +267,43 @@ async def get_widget_script(
 
   var style = document.createElement("style");
   style.textContent = `
-    #flyrank-launcher {{
+    #flyrank-launcher {
       width: 60px; height: 60px; border-radius: 50%;
-      background: linear-gradient(135deg, #7c3aed, #4f46e5);
-      box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+      background: ` + THEME_COLOR + `;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
-    }}
-    #flyrank-launcher:hover {{ transform: scale(1.05); box-shadow: 0 10px 28px rgba(124, 58, 237, 0.5); }}
-    #flyrank-window {{
+    }
+    #flyrank-launcher:hover { transform: scale(1.05); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); }
+    #flyrank-window {
       display: none; width: 380px; height: 550px; border-radius: 20px;
       background: #0f172a; border: 1px solid #1e293b;
       box-shadow: 0 20px 40px rgba(0,0,0,0.5);
       flex-direction: column; overflow: hidden; margin-bottom: 16px;
-    }}
-    #flyrank-header {{
-      padding: 16px; background: linear-gradient(135deg, #7c3aed, #4f46e5); color: #fff;
+    }
+    #flyrank-header {
+      padding: 16px; background: ` + THEME_COLOR + `; color: #fff;
       display: flex; align-items: center; justify-content: space-between; font-weight: 600;
-    }}
-    #flyrank-body {{
+    }
+    #flyrank-body {
       flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #0b0f19;
-    }}
-    .flyrank-msg {{
+    }
+    .flyrank-msg {
       max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-wrap: break-word;
-    }}
-    .flyrank-msg-bot {{ background: #1e293b; color: #f1f5f9; align-self: flex-start; border: 1px solid #334155; }}
-    .flyrank-msg-user {{ background: #7c3aed; color: #ffffff; align-self: flex-end; }}
-    #flyrank-footer {{
+    }
+    .flyrank-msg-bot { background: #1e293b; color: #f1f5f9; align-self: flex-start; border: 1px solid #334155; }
+    .flyrank-msg-user { background: ` + THEME_COLOR + `; color: #ffffff; align-self: flex-end; }
+    #flyrank-footer {
       padding: 12px; background: #0f172a; border-top: 1px solid #1e293b; display: flex; gap: 8px;
-    }}
-    #flyrank-input {{
+    }
+    #flyrank-input {
       flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid #334155;
       background: #1e293b; color: #fff; font-size: 14px; outline: none;
-    }}
-    #flyrank-input:focus {{ border-color: #7c3aed; }}
-    #flyrank-send-btn {{
-      padding: 0 16px; border-radius: 10px; background: #7c3aed; color: #fff; border: none; font-weight: 600; cursor: pointer;
-    }}
+    }
+    #flyrank-input:focus { border-color: ` + THEME_COLOR + `; }
+    #flyrank-send-btn {
+      padding: 0 16px; border-radius: 10px; background: ` + THEME_COLOR + `; color: #fff; border: none; font-weight: 600; cursor: pointer;
+    }
   `;
   document.head.appendChild(style);
 

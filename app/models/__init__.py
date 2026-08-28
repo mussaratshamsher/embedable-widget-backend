@@ -7,6 +7,7 @@ from app.models.visitor import Visitor
 from app.models.conversation import Conversation, ConversationStatus
 from app.models.message import Message, MessageRole
 from app.models.lead import Lead
+from app.models.webhook import Webhook
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "Message",
     "MessageRole",
     "Lead",
+    "Webhook",
 ]

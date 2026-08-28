@@ -26,7 +26,7 @@ from app.api import conversations as conversations_router
 from app.api import chat as chat_router
 from app.api import leads as leads_router
 from app.api import admin as admin_router
-
+from app.api import webhooks as webhooks_router
 
 app = FastAPI(
     title=settings.app_name,
@@ -64,6 +64,7 @@ app.include_router(conversations_router.router)
 app.include_router(chat_router.router)
 app.include_router(leads_router.router)
 app.include_router(admin_router.router)
+app.include_router(webhooks_router.router)
 
 
 # Exception handlers
