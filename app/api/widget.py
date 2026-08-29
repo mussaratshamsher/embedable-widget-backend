@@ -48,8 +48,8 @@ async def create_widget_session(
     Returns safe identifiers for client-side tracking.
     """
     try:
-        # Verify reCAPTCHA if configured
-        if settings.recaptcha_site_key and settings.recaptcha_secret_key:
+        # Verify reCAPTCHA if configured and not in development
+        if settings.recaptcha_site_key and settings.recaptcha_secret_key and settings.environment != "development":
             if not session_create.recaptcha_token:
                 raise ValidationException("reCAPTCHA token is required")
             
@@ -347,9 +347,15 @@ async def get_widget_script(
       // Handle ReCAPTCHA if enabled
       if (window.grecaptcha && "{settings.recaptcha_site_key}") {{
         try {{
-          var token = await new Promise((resolve) => {{
+          var token = await new Promise((resolve, reject) => {{
             grecaptcha.ready(function() {{
-              grecaptcha.execute("{settings.recaptcha_site_key}", {{action: 'submit'}}).then(resolve);
+              try {{
+                grecaptcha.execute("{settings.recaptcha_site_key}", {{action: 'submit'}})
+                  .then(resolve)
+                  .catch(reject);
+              }} catch (err) {{
+                reject(err);
+              }}
             }});
           }});
           payload.recaptcha_token = token;
@@ -367,9 +373,13 @@ async def get_widget_script(
       if (data && data.conversation_id) {{
         conversationId = data.conversation_id;
         appendMessage(WELCOME_MSG, "assistant");
+      }} else {{
+        console.error("Failed to start session:", data);
+        appendMessage("Sorry, we couldn't start the chat session. Please try again later.", "bot");
       }}
     }} catch (e) {{
       console.error("Failed to initialize widget session", e);
+      appendMessage("Sorry, we couldn't connect to the server.", "bot");
     }}
   }}
   async function sendMessage() {{

@@ -31,8 +31,8 @@ async def register(
     - **last_name**: Optional last name
     """
     try:
-        # Verify reCAPTCHA if configured
-        if settings.recaptcha_site_key and settings.recaptcha_secret_key:
+        # Verify reCAPTCHA if configured and not in development
+        if settings.recaptcha_site_key and settings.recaptcha_secret_key and settings.environment != "development":
             if not user_create.recaptcha_token:
                 raise AuthenticationException("reCAPTCHA token is required")
             is_valid = await verify_recaptcha_token(user_create.recaptcha_token)
@@ -73,8 +73,8 @@ async def login(
     - **password**: User password
     """
     try:
-        # Verify reCAPTCHA if configured
-        if settings.recaptcha_site_key and settings.recaptcha_secret_key:
+        # Verify reCAPTCHA if configured and not in development
+        if settings.recaptcha_site_key and settings.recaptcha_secret_key and settings.environment != "development":
             if not user_login.recaptcha_token:
                 raise AuthenticationException("reCAPTCHA token is required")
             is_valid = await verify_recaptcha_token(user_login.recaptcha_token)
