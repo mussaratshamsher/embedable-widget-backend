@@ -31,6 +31,14 @@ async def register(
     - **last_name**: Optional last name
     """
     try:
+        # Verify reCAPTCHA if configured
+        if settings.recaptcha_site_key and settings.recaptcha_secret_key:
+            if not user_create.recaptcha_token:
+                raise AuthenticationException("reCAPTCHA token is required")
+            is_valid = await verify_recaptcha_token(user_create.recaptcha_token)
+            if not is_valid:
+                raise AuthenticationException("Invalid reCAPTCHA token")
+
         user = await AuthService.register_user(user_create, db)
         token_data = AuthService.create_token(user)
         
@@ -45,6 +53,9 @@ async def register(
             detail=e.message,
         )
 
+
+from app.services.recaptcha_service import verify_recaptcha_token
+from app.core.config import settings
 
 @router.post(
     "/login",
@@ -62,6 +73,14 @@ async def login(
     - **password**: User password
     """
     try:
+        # Verify reCAPTCHA if configured
+        if settings.recaptcha_site_key and settings.recaptcha_secret_key:
+            if not user_login.recaptcha_token:
+                raise AuthenticationException("reCAPTCHA token is required")
+            is_valid = await verify_recaptcha_token(user_login.recaptcha_token)
+            if not is_valid:
+                raise AuthenticationException("Invalid reCAPTCHA token")
+
         user = await AuthService.authenticate_user(
             user_login.email, user_login.password, db
         )

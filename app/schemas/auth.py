@@ -17,6 +17,7 @@ class UserCreate(UserBase):
     """Schema for user registration."""
     
     password: str = Field(..., min_length=8, description="Password (min 8 chars)")
+    recaptcha_token: Optional[str] = Field(None, description="Google reCAPTCHA token")
 
 
 class UserLogin(BaseModel):
@@ -24,6 +25,7 @@ class UserLogin(BaseModel):
     
     email: EmailStr = Field(..., description="User email address")
     password: str = Field(..., description="User password")
+    recaptcha_token: Optional[str] = Field(None, description="Google reCAPTCHA token")
 
 
 class UserResponse(UserBase):

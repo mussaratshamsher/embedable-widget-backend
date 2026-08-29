@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings
+from pydantic import Field
 from typing import List
 
 
@@ -36,8 +37,8 @@ class Settings(BaseSettings):
     fast_api_cloud_token: str = ""
     
     # reCAPTCHA
-    recaptcha_secret_key: str = ""
-    recaptcha_site_key: str = ""
+    recaptcha_secret_key: str = Field(default="", validation_alias="SECRET_KEY")
+    recaptcha_site_key: str = Field(default="", validation_alias="PROJECT_ID")
     
     class Config:
         import os
