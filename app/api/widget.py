@@ -418,7 +418,10 @@ async def get_widget_script(
             if (dataStr) {{
               try {{
                 var data = JSON.parse(dataStr);
-                if (data.chunk) {{
+                if (data.error) {{
+                  botMsg.textContent = "Error: " + data.error;
+                  body.scrollTop = body.scrollHeight;
+                }} else if (data.chunk) {{
                   botMsg.textContent += data.chunk;
                   body.scrollTop = body.scrollHeight;
                 }}

@@ -15,7 +15,7 @@ class GroqProvider(LLMProvider):
     def __init__(self):
         """Initialize Groq client."""
         self.client = Groq(api_key=settings.groq_api_key)
-        self.model = "openai/gpt-oss-20b"  # Active model on current Groq tier
+        self.model = "llama3-8b-8192"  # Active model on current Groq tier
     
     async def generate_response(
         self,
