@@ -1,5 +1,6 @@
 """Widget API endpoints for public widget interactions."""
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from urllib.parse import urlparse
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
@@ -25,6 +26,25 @@ router = APIRouter(prefix="/api/widget", tags=["Widget"])
 session_limiter = RateLimiter(requests=5, window=60) # 5 sessions per minute per IP
 message_limiter = RateLimiter(requests=20, window=60) # 20 messages per minute per IP
 
+def verify_domain_access(request: Request, project):
+    """Verify that the request origin matches the project's allowed domains."""
+    if not project.allowed_domains:
+        return  # No whitelist configured, allow all
+        
+    origin = request.headers.get("origin") or request.headers.get("referer")
+    if not origin:
+        raise AuthenticationException("Origin header missing for domain-restricted project")
+        
+    parsed = urlparse(origin)
+    domain = parsed.netloc if parsed.netloc else parsed.path
+    
+    # Strip port (e.g., localhost:3000 -> localhost)
+    domain = domain.split(":")[0].lower()
+    
+    allowed = [d.lower() for d in project.allowed_domains]
+    if domain not in allowed:
+        raise AuthenticationException(f"Domain '{domain}' is not whitelisted for this widget")
+
 
 @router.post(
     "/session",
@@ -34,6 +54,7 @@ message_limiter = RateLimiter(requests=20, window=60) # 20 messages per minute p
     description="Initialize a visitor session and conversation for the widget",
 )
 async def create_widget_session(
+    request: Request,
     session_create: ConversationCreate,
     db: AsyncSession = Depends(get_db),
     _=Depends(session_limiter),
@@ -64,6 +85,8 @@ async def create_widget_session(
         
         if not project:
             raise AuthenticationException("Invalid API key")
+            
+        verify_domain_access(request, project)
         
         if not project.is_active:
             raise ValidationException("Project is not active")
@@ -115,6 +138,7 @@ async def create_widget_session(
     description="Send a user message to the conversation",
 )
 async def send_message(
+    request: Request,
     conversation_id: UUID,
     message_create: MessageCreate,
     project_api_key: str = Query(..., description="Project API key"),
@@ -139,6 +163,8 @@ async def send_message(
         
         if not project or project.id != conversation.project_id:
             raise AuthenticationException("Invalid API key for this conversation")
+            
+        verify_domain_access(request, project)
         
         if conversation.status != "active":
             raise ValidationException("Conversation is not active")
@@ -171,6 +197,7 @@ async def send_message(
     description="Retrieve message history from a conversation",
 )
 async def get_messages(
+    request: Request,
     conversation_id: UUID,
     project_api_key: str = Query(..., description="Project API key"),
     limit: int = Query(20, ge=1, le=100),
@@ -194,6 +221,8 @@ async def get_messages(
         
         if not project or project.id != conversation.project_id:
             raise AuthenticationException("Invalid API key for this conversation")
+            
+        verify_domain_access(request, project)
         
         # Get messages
         messages = await ConversationService.get_conversation_messages(
@@ -219,6 +248,7 @@ async def get_messages(
     description="Generate ready-to-use JavaScript code for embedding interactive AI chat widget into any website",
 )
 async def get_widget_script(
+    request: Request,
     api_key: str = Query(..., description="Project API Key"),
     db: AsyncSession = Depends(get_db),
 ):
@@ -231,9 +261,15 @@ async def get_widget_script(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found or inactive",
         )
+        
+    try:
+        verify_domain_access(request, project)
+    except AuthenticationException as e:
+        raise HTTPException(status_code=403, detail=str(e))
 
     safe_name = project.name.replace('"', '').replace('\n', ' ')
     safe_msg = (project.welcome_message or 'Hello! How can I assist you today?').replace('"', '').replace('\n', ' ')
+    backend_url = str(request.base_url).rstrip('/')
 
     script_content = f"""(function() {{
   if (window.__FLYRANK_WIDGET_LOADED__) return;
@@ -250,8 +286,23 @@ async def get_widget_script(
   var API_KEY = "{project.api_key}";
   var PROJECT_NAME = "{safe_name}";
   var WELCOME_MSG = "{safe_msg}";
-  var BACKEND_URL = "http://localhost:8000";
+  var BACKEND_URL = "{backend_url}";
   var THEME_COLOR = "{project.theme_color or '#7c3aed'}";
+
+  function getContrastColor(hexcolor) {{
+    if (!hexcolor) return "#ffffff";
+    hexcolor = hexcolor.replace("#", "");
+    if (hexcolor.length === 3) {{
+      hexcolor = hexcolor.split("").map(function(hex) {{ return hex + hex; }}).join("");
+    }}
+    if (hexcolor.length !== 6) return "#ffffff";
+    var r = parseInt(hexcolor.substr(0, 2), 16);
+    var g = parseInt(hexcolor.substr(2, 2), 16);
+    var b = parseInt(hexcolor.substr(4, 2), 16);
+    var yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? "#000000" : "#ffffff";
+  }}
+  var TEXT_ON_THEME = getContrastColor(THEME_COLOR);
 
   var visitorIdentifier = localStorage.getItem("flyrank_vis_id") || ("vis_" + Math.random().toString(36).substring(2, 15));
   localStorage.setItem("flyrank_vis_id", visitorIdentifier);
@@ -267,43 +318,43 @@ async def get_widget_script(
 
   var style = document.createElement("style");
   style.textContent = `
-    #flyrank-launcher {
+    #flyrank-launcher {{
       width: 60px; height: 60px; border-radius: 50%;
       background: ` + THEME_COLOR + `;
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
       display: flex; align-items: center; justify-content: center;
       cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;
-    }
-    #flyrank-launcher:hover { transform: scale(1.05); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); }
-    #flyrank-window {
-      display: none; width: 380px; height: 550px; border-radius: 20px;
+    }}
+    #flyrank-launcher:hover {{ transform: scale(1.05); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3); }}
+    #flyrank-window {{
+      display: none; width: 350px; height: 500px; max-height: 80vh; max-width: 90vw; border-radius: 16px;
       background: #0f172a; border: 1px solid #1e293b;
       box-shadow: 0 20px 40px rgba(0,0,0,0.5);
       flex-direction: column; overflow: hidden; margin-bottom: 16px;
-    }
-    #flyrank-header {
-      padding: 16px; background: ` + THEME_COLOR + `; color: #fff;
+    }}
+    #flyrank-header {{
+      padding: 14px 16px; background: ` + THEME_COLOR + `; color: ` + TEXT_ON_THEME + `;
       display: flex; align-items: center; justify-content: space-between; font-weight: 600;
-    }
-    #flyrank-body {
+    }}
+    #flyrank-body {{
       flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: #0b0f19;
-    }
-    .flyrank-msg {
-      max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-wrap: break-word;
-    }
-    .flyrank-msg-bot { background: #1e293b; color: #f1f5f9; align-self: flex-start; border: 1px solid #334155; }
-    .flyrank-msg-user { background: ` + THEME_COLOR + `; color: #ffffff; align-self: flex-end; }
-    #flyrank-footer {
+    }}
+    .flyrank-msg {{
+      max-width: 80%; padding: 10px 14px; border-radius: 14px; font-size: 14px; line-height: 1.4; word-wrap: break-word; white-space: pre-wrap;
+    }}
+    .flyrank-msg-bot {{ background: #1e293b; color: #f1f5f9; align-self: flex-start; border: 1px solid #334155; }}
+    .flyrank-msg-user {{ background: ` + THEME_COLOR + `; color: ` + TEXT_ON_THEME + `; align-self: flex-end; }}
+    #flyrank-footer {{
       padding: 12px; background: #0f172a; border-top: 1px solid #1e293b; display: flex; gap: 8px;
-    }
-    #flyrank-input {
+    }}
+    #flyrank-input {{
       flex: 1; padding: 10px 14px; border-radius: 10px; border: 1px solid #334155;
       background: #1e293b; color: #fff; font-size: 14px; outline: none;
-    }
-    #flyrank-input:focus { border-color: ` + THEME_COLOR + `; }
-    #flyrank-send-btn {
-      padding: 0 16px; border-radius: 10px; background: ` + THEME_COLOR + `; color: #fff; border: none; font-weight: 600; cursor: pointer;
-    }
+    }}
+    #flyrank-input:focus {{ border-color: ` + THEME_COLOR + `; }}
+    #flyrank-send-btn {{
+      padding: 0 16px; border-radius: 10px; background: ` + THEME_COLOR + `; color: ` + TEXT_ON_THEME + `; border: none; font-weight: 600; cursor: pointer;
+    }}
   `;
   document.head.appendChild(style);
 
@@ -404,29 +455,31 @@ async def get_widget_script(
       botMsg.className = "flyrank-msg flyrank-msg-bot";
       body.appendChild(botMsg);
 
+      var buffer = "";
       while (true) {{
         var {{ value, done }} = await reader.read();
         if (done) break;
         
-        var chunk = decoder.decode(value, {{ stream: true }});
-        var lines = chunk.split('\\n');
+        buffer += decoder.decode(value, {{ stream: true }});
+        var events = buffer.split('\\n\\n');
+        buffer = events.pop();
         
-        for (var i = 0; i < lines.length; i++) {{
-          var line = lines[i];
-          if (line.startsWith("data: ")) {{
-            var dataStr = line.substring(6);
+        for (var i = 0; i < events.length; i++) {{
+          var ev = events[i];
+          if (ev.startsWith("data: ")) {{
+            var dataStr = ev.substring(6);
             if (dataStr) {{
               try {{
                 var data = JSON.parse(dataStr);
                 if (data.error) {{
                   botMsg.textContent = "Error: " + data.error;
                   body.scrollTop = body.scrollHeight;
-                }} else if (data.chunk) {{
+                }} else if (data.chunk !== undefined) {{
                   botMsg.textContent += data.chunk;
                   body.scrollTop = body.scrollHeight;
                 }}
               }} catch (e) {{
-                console.error("Error parsing chunk", e);
+                console.error("Error parsing chunk", e, dataStr);
               }}
             }}
           }}

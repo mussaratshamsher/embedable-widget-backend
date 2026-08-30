@@ -1,11 +1,12 @@
 """Chat API endpoints with AI responses."""
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 import json
 
 from app.db.database import get_db
+from app.api.widget import verify_domain_access
 from app.services.conversation_service import ConversationService
 from app.services.project_service import ProjectService
 from app.services.visitor_service import VisitorService
@@ -30,6 +31,7 @@ llm_service = LLMService()
     description="Send user message and get AI response via Server-Sent Events",
 )
 async def send_chat_message(
+    request: Request,
     conversation_id: UUID,
     message_request: ChatMessageRequest,
     project_api_key: str = Query(..., description="Project API key"),
@@ -54,6 +56,8 @@ async def send_chat_message(
         
         if not project or project.id != conversation.project_id:
             raise AuthenticationException("Invalid API key for this conversation")
+            
+        verify_domain_access(request, project)
         
         if conversation.status != "active":
             raise ValidationException("Conversation is not active")
@@ -145,6 +149,7 @@ async def send_chat_message(
     description="Extract and qualify lead information from conversation",
 )
 async def qualify_lead(
+    request: Request,
     conversation_id: UUID,
     project_api_key: str = Query(..., description="Project API key"),
     db: AsyncSession = Depends(get_db),
@@ -167,6 +172,8 @@ async def qualify_lead(
         
         if not project or project.id != conversation.project_id:
             raise AuthenticationException("Invalid API key for this conversation")
+            
+        verify_domain_access(request, project)
         
         # Get conversation messages for analysis
         _, messages = await ConversationService.get_conversation_context(

@@ -24,6 +24,7 @@ class ProjectBase(BaseModel):
     ai_instructions: Optional[str] = Field(None, max_length=5000)
     welcome_message: Optional[str] = Field(None, max_length=1000)
     theme_color: Optional[str] = Field(None, max_length=50)
+    allowed_domains: Optional[list[str]] = Field(default_factory=list, description="List of domains allowed to use this widget")
 
 
 class ProjectCreate(ProjectBase):
@@ -41,8 +42,8 @@ class ProjectUpdate(BaseModel):
     ai_instructions: Optional[str] = Field(None, max_length=5000)
     welcome_message: Optional[str] = Field(None, max_length=1000)
     theme_color: Optional[str] = Field(None, max_length=50)
+    allowed_domains: Optional[list[str]] = Field(None, description="List of domains allowed to use this widget")
     status: Optional[ProjectStatus] = None
-
 
 class ProjectResponse(ProjectBase):
     """Schema for project response."""

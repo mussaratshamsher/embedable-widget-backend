@@ -92,6 +92,8 @@ class ProjectService:
             business_type=project_create.business_type,
             ai_instructions=project_create.ai_instructions,
             welcome_message=project_create.welcome_message,
+            theme_color=project_create.theme_color,
+            allowed_domains=project_create.allowed_domains,
             api_key=api_key,
             is_active=True,
         )
