@@ -22,8 +22,6 @@ from app.core.exceptions import (
 
 router = APIRouter(prefix="/api/chat", tags=["Chat"])
 
-llm_service = LLMService()
-
 
 @router.post(
     "/send",
@@ -81,6 +79,9 @@ async def send_chat_message(
             for msg in messages
         ]
         
+        # Initialize LLMService with project preference
+        llm_service = LLMService(primary_llm=project.primary_llm)
+        
         # Generate streaming response
         async def event_generator():
             """Generate SSE events with AI response chunks."""
@@ -91,6 +92,7 @@ async def send_chat_message(
                 async for chunk in llm_service.stream_ai_response(
                     conversation_history=formatted_messages,
                     project_ai_instructions=project.ai_instructions,
+                    enabled_tools=project.enabled_tools,
                 ):
                     full_response += chunk
                     
@@ -190,6 +192,7 @@ async def qualify_lead(
         ]
         
         # Extract lead data using LLM
+        llm_service = LLMService(primary_llm=project.primary_llm)
         lead_data = await llm_service.extract_lead_data(
             conversation_history=formatted_messages,
         )

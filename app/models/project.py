@@ -44,6 +44,11 @@ class Project(Base):
     api_key = Column(String(255), unique=True, nullable=False, index=True)
     extra_metadata = Column("metadata", JSON, default={}, nullable=False)
     
+    # LLM & Tools Configuration
+    primary_llm = Column(String(50), default="groq", nullable=False)
+    enabled_tools = Column(JSON, default=list, nullable=False)
+
+    
     # Enterprise & Security Features
     allowed_domains = Column(JSON, nullable=True) # Domain Whitelisting
     theme_color = Column(String(50), nullable=True) # Custom Branding

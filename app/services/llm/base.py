@@ -1,6 +1,6 @@
 """Base LLM provider interface."""
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import AsyncIterator, Any
 
 
 class LLMProvider(ABC):
@@ -13,7 +13,8 @@ class LLMProvider(ABC):
         system_prompt: str = None,
         max_tokens: int = 1000,
         temperature: float = 0.7,
-    ) -> str:
+        tools: list[dict] = None,
+    ) -> Any:
         """Generate a response from the LLM.
         
         Args:
@@ -21,9 +22,10 @@ class LLMProvider(ABC):
             system_prompt: Optional system message to set context
             max_tokens: Maximum tokens in response
             temperature: Response creativity (0-1)
+            tools: Optional list of tools formatted for the provider
             
         Returns:
-            Generated response text
+            Generated response text, or if tools were called, depends on provider implementations.
         """
         pass
     

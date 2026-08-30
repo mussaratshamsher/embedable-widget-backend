@@ -17,6 +17,10 @@ class Settings(BaseSettings):
     # Groq
     groq_api_key: str
     
+    # Gemini
+    gemini_api_key: str = Field(default="", validation_alias="GEMINI_API_KEY")
+
+    
     # CORS
     cors_origins: List[str] = ["*"]
     

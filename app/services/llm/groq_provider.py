@@ -1,6 +1,6 @@
 """Groq API provider implementation."""
 import json
-from typing import AsyncIterator
+from typing import AsyncIterator, Any
 from groq import Groq
 import asyncio
 
@@ -23,7 +23,8 @@ class GroqProvider(LLMProvider):
         system_prompt: str = None,
         max_tokens: int = 1000,
         temperature: float = 0.7,
-    ) -> str:
+        tools: list[dict] = None,
+    ) -> str | tuple[str, list[dict]]:
         """Generate a response from Groq.
         
         Args:
@@ -31,9 +32,10 @@ class GroqProvider(LLMProvider):
             system_prompt: Optional system message to set context
             max_tokens: Maximum tokens in response
             temperature: Response creativity (0-1)
+            tools: Optional list of tools formatted for OpenAI/Groq schema
             
         Returns:
-            Generated response text
+            Generated response text, or if tools were called, a tuple of (text, tool_calls)
             
         Raises:
             ServiceUnavailableException: If Groq API fails
@@ -57,11 +59,13 @@ class GroqProvider(LLMProvider):
                 max_tokens,
                 temperature,
                 False,  # not streaming
+                tools,
             )
             
             if not response:
                 raise ValidationException("Empty response from Groq")
             
+            # response is a tuple of (text, tool_calls) if tool_calls exist, else just string
             return response
         except Exception as e:
             if "429" in str(e):
@@ -165,7 +169,8 @@ class GroqProvider(LLMProvider):
         max_tokens: int,
         temperature: float,
         stream: bool,
-    ) -> str:
+        tools: list[dict] = None,
+    ) -> Any:
         """Call Groq API synchronously (to be run in thread pool).
         
         Args:
@@ -173,22 +178,43 @@ class GroqProvider(LLMProvider):
             max_tokens: Maximum tokens
             temperature: Temperature
             stream: Whether to stream
+            tools: Optional tools list
             
         Returns:
             Response text or empty if stream=True
         """
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=messages,
-            max_tokens=max_tokens,
-            temperature=temperature,
-            stream=stream,
-        )
+        kwargs = {
+            "model": self.model,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+            "stream": stream,
+        }
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+
+        response = self.client.chat.completions.create(**kwargs)
         
         if stream:
             return ""
         else:
-            return response.choices[0].message.content
+            msg = response.choices[0].message
+            if getattr(msg, "tool_calls", None):
+                # Return tuple of text and tool calls
+                tool_calls = [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments
+                        }
+                    } 
+                    for tc in msg.tool_calls
+                ]
+                return (msg.content or "", tool_calls)
+            return msg.content or ""
     
     async def _stream_groq_api(
         self,
