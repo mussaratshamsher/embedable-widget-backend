@@ -41,7 +41,16 @@ def verify_domain_access(request: Request, project):
     # Strip port (e.g., localhost:3000 -> localhost)
     domain = domain.split(":")[0].lower()
     
-    allowed = [d.lower() for d in project.allowed_domains]
+    allowed = []
+    for d in project.allowed_domains:
+        # Normalize the allowed domain
+        d_str = d.lower()
+        if "://" not in d_str:
+            d_str = f"http://{d_str}"
+        d_parsed = urlparse(d_str)
+        d_domain = (d_parsed.netloc if d_parsed.netloc else d_parsed.path).split(":")[0]
+        allowed.append(d_domain)
+        
     if domain not in allowed:
         raise AuthenticationException(f"Domain '{domain}' is not whitelisted for this widget")
 
@@ -261,11 +270,9 @@ async def get_widget_script(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Project not found or inactive",
         )
-        
-    try:
-        verify_domain_access(request, project)
-    except AuthenticationException as e:
-        raise HTTPException(status_code=403, detail=str(e))
+    # We don't restrict domain access on the script itself because browsers
+    # often omit Referer/Origin headers on <script> tags. The actual API endpoints
+    # (/session and /messages) will still enforce domain restrictions.
 
     safe_name = project.name.replace('"', '').replace('\n', ' ')
     safe_msg = (project.welcome_message or 'Hello! How can I assist you today?').replace('"', '').replace('\n', ' ')
