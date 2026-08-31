@@ -308,4 +308,4 @@ See `Backend_Implementation_Plan.md` for detailed requirements and specification
 
 ## License
 
-Internal use only - FlyRank Hackathon Project
+Internal use only - FlyRank Hackathon Project - LeadForge: An embedable Widget
