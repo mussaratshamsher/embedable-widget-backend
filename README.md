@@ -1,4 +1,4 @@
-# FlyRank AI Widget Backend
+# LeadFroge AI Widget Backend
 
 A multi-tenant FastAPI backend for an AI-powered embeddable website widget with lead capture and qualification using Groq LLM.
 

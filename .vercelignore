@@ -1,2 +1,31 @@
 # Vercel build output
 .vercel/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python Cache & Build
+__pycache__/
+build/
+*.egg-info/
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+test_output.txt
+tests/
+run_test.py
+conftest.py
+.deepeval/
+
+# Local Dev & Scripts
+scripts/
+fix_db.py
+deploy.sh
+docker-compose.yml
+Dockerfile
+.env
+.env.*

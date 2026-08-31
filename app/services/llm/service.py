@@ -95,10 +95,13 @@ class LLMService:
             )
             # if it's a tuple again somehow (shouldn't be), just return text
             if isinstance(final_response, tuple):
-                return final_response[0]
-            return final_response
+                final_response = final_response[0]
             
-        return response
+            import re
+            return re.sub(r'<think>.*?</think>', '', final_response, flags=re.DOTALL).strip()
+            
+        import re
+        return re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL).strip()
     
     async def stream_ai_response(
         self,
@@ -114,22 +117,62 @@ class LLMService:
         Otherwise, stream normally.
         """
         system_prompt = self._build_system_prompt(project_ai_instructions)
+        import re
+        import asyncio
         
         if enabled_tools:
             # If tools are enabled, we do not stream the first pass because we need to parse JSON arguments
             final_text = await self.get_ai_response(
                 conversation_history, project_ai_instructions, max_tokens, enabled_tools
             )
-            yield final_text
+            
+            # Strip <think>...</think> blocks
+            final_text = re.sub(r'<think>.*?</think>', '', final_text, flags=re.DOTALL).strip()
+            
+            # Simulate typing effect
+            chunk_size = 2
+            for i in range(0, len(final_text), chunk_size):
+                yield final_text[i:i+chunk_size]
+                await asyncio.sleep(0.01)
             return
             
+        # For non-tools, stream and filter <think> on the fly
+        in_think_block = False
+        buffer = ""
+        
         async for chunk in self.factory.stream_response_with_fallback(
             messages=conversation_history,
             system_prompt=system_prompt,
             max_tokens=max_tokens,
             temperature=0.7,
         ):
-            yield chunk
+            buffer += chunk
+            while True:
+                if not in_think_block:
+                    think_start = buffer.find("<think>")
+                    if think_start != -1:
+                        if think_start > 0:
+                            yield buffer[:think_start]
+                        buffer = buffer[think_start:]
+                        in_think_block = True
+                    else:
+                        if len(buffer) > 7:
+                            yield buffer[:-7]
+                            buffer = buffer[-7:]
+                        break
+                else:
+                    think_end = buffer.find("</think>")
+                    if think_end != -1:
+                        buffer = buffer[think_end + 8:].lstrip()
+                        in_think_block = False
+                    else:
+                        break
+                        
+        if not in_think_block and buffer:
+            # Clean up any partial <think> that wasn't completed
+            clean_buffer = re.sub(r'<think>.*', '', buffer, flags=re.DOTALL)
+            if clean_buffer:
+                yield clean_buffer
     
     async def extract_lead_data(
         self,
