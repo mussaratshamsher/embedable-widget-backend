@@ -15,7 +15,7 @@ class GroqProvider(LLMProvider):
     def __init__(self):
         """Initialize Groq client."""
         self.client = Groq(api_key=settings.groq_api_key)
-        self.model = "qwen/qwen3.6-27b"  # Active model on current Groq tier
+        self.model = "llama-3.3-70b-versatile"
     
     async def generate_response(
         self,

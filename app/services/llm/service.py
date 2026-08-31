@@ -110,12 +110,14 @@ class LLMService:
             # Strip <think>...</think> blocks and any unclosed <think>... blocks
             combined_response = re.sub(r'<think>.*?</think>', '', combined_response, flags=re.DOTALL)
             combined_response = re.sub(r'<think>.*', '', combined_response, flags=re.DOTALL)
-            return combined_response.strip()
+            clean_response = combined_response.strip()
+            return clean_response if clean_response else "I have completed the task."
             
         import re
         response = re.sub(r'<think>.*?</think>', '', response, flags=re.DOTALL)
         response = re.sub(r'<think>.*', '', response, flags=re.DOTALL)
-        return response.strip()
+        clean_response = response.strip()
+        return clean_response if clean_response else "I have completed the task."
     
     async def stream_ai_response(
         self,

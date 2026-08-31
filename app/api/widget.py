@@ -458,9 +458,7 @@ async def get_widget_script(
       var reader = res.body.getReader();
       var decoder = new TextDecoder("utf-8");
       
-      var botMsg = document.createElement("div");
-      botMsg.className = "flyrank-msg flyrank-msg-bot";
-      body.appendChild(botMsg);
+      var botMsg = null;
 
       var buffer = "";
       while (true) {{
@@ -479,11 +477,23 @@ async def get_widget_script(
               try {{
                 var data = JSON.parse(dataStr);
                 if (data.error) {{
+                  if (!botMsg) {{
+                    botMsg = document.createElement("div");
+                    botMsg.className = "flyrank-msg flyrank-msg-bot";
+                    body.appendChild(botMsg);
+                  }}
                   botMsg.textContent = "Error: " + data.error;
                   body.scrollTop = body.scrollHeight;
-                }} else if (data.chunk !== undefined) {{
+                }} else if (data.chunk) {{
+                  if (!botMsg) {{
+                    botMsg = document.createElement("div");
+                    botMsg.className = "flyrank-msg flyrank-msg-bot";
+                    body.appendChild(botMsg);
+                  }}
                   botMsg.textContent += data.chunk;
                   body.scrollTop = body.scrollHeight;
+                }} else if (data.is_final && !botMsg && data.chunk === "") {{
+                  // Ignore empty final chunks if nothing was sent
                 }}
               }} catch (e) {{
                 console.error("Error parsing chunk", e, dataStr);
